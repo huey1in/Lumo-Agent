@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumo Agent</title>
+    <!-- 引入 Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+      :root {
+        /* Google Material Colors */
+        --primary: #1a73e8;       /* Google Blue */
+        --primary-hover: #1557b0;
+        --primary-bg: #e8f0fe;    
+        
+        --success: #1e8e3e;       
+        --success-bg: #e6f4ea;
+        
+        --error: #d93025;         
+        --error-bg: #fce8e6;
+        
+        --warning: #f9ab00;       
+        
+        --bg-body: #ffffff;
+        --bg-panel: #f8f9fa;      
+        --border-color: #dadce0;  
+        
+        --text-main: #202124;     
+        --text-sub: #5f6368;      
+        --text-code: #444746;
+        
+        /* Terminal Colors */
+        --term-bg: #202124;
+        --term-header: #2d2e31;
+        --term-text: #e8eaed;
+
+        /* Fonts */
+        --font-sans: "Roboto", -apple-system, BlinkMacSystemFont, sans-serif;
+        --font-mono: "Roboto Mono", "Fira Code", monospace;
+
+        /* Metrics */
+        --radius-bubble: 18px;
+        --radius-card: 12px;
+        --radius-pill: 24px;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        font-family: var(--font-sans);
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        display: flex;
+        background: var(--bg-body);
+        color: var(--text-main);
+        overflow: hidden;
+      }
+
+      /* === 左侧：交互面板 === */
+      .chat-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--border-color);
+        max-width: 60%;
+        min-width: 450px;
+        position: relative;
+        background: #fff;
+      }
+
+      .chat-header {
+        height: 64px;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        background: rgba(255,255,255,0.98);
+        z-index: 10;
+      }
+
+      .brand-title { 
+        font-size: 1.25rem; 
+        font-weight: 500; 
+        color: var(--text-main); 
+        letter-spacing: -0.5px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      
+      .status-badge { 
+        font-size: 0.75rem; 
+        padding: 4px 12px; 
+        background: var(--success-bg); 
+        color: var(--success); 
+        border-radius: 16px; 
+        font-weight: 600; 
+      }
+
+      .chat-stream {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px; /* 稍微减小间距 */
+        scroll-behavior: smooth;
+        background: #fff;
+      }
+
+      /* Message Rows */
+      .msg-row { display: flex; flex-direction: column; max-width: 90%; animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+      
+      /* === 统一的气泡样式 === */
+      /* 默认样式（用于 AI、Summary、Log 等所有非用户消息） */
+      .msg-bubble {
+        padding: 14px 20px;
+        border-radius: var(--radius-bubble);
+        font-size: 0.95rem;
+        line-height: 1.6;
+        position: relative;
+        
+        /* AI 统一使用白底灰边框 */
+        background: #fff;
+        border: 1px solid var(--border-color);
+        color: var(--text-main);
+        border-bottom-left-radius: 4px; /* 左下角直角，表示来自左侧 */
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        white-space: pre-wrap; /* 保留换行 */
+      }
+
+      /* === 用户特定样式 === */
+      .msg-row.user { align-self: flex-end; align-items: flex-end; max-width: 80%; }
+      
+      .user .msg-bubble { 
+        background: var(--primary); 
+        color: #fff; 
+        border: none;
+        border-radius: var(--radius-bubble);
+        border-bottom-right-radius: 4px; /* 右下角直角，表示来自右侧 */
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      }
+
+      /* === 任务卡片 (Material Card) === */
+      .task-card {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-card);
+        width: 100%;
+        overflow: hidden;
+        margin-top: 4px;
+      }
+
+      .task-card-header {
+        background: #fff;
+        padding: 14px 20px;
+        border-bottom: 1px solid #f1f3f4;
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center;
+      }
+      
+      .header-title { 
+        font-family: var(--font-sans);
+        font-size: 0.875rem; 
+        font-weight: 600; 
+        color: var(--text-main); 
+        text-transform: uppercase; 
+        display: flex; align-items: center; gap: 10px; 
+      }
+      
+      .icon-svg { width: 20px; height: 20px; fill: currentColor; }
+      .task-list-container { padding: 0; }
+
+      .task-item {
+        padding: 12px 20px;
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        border-left: 4px solid transparent;
+        border-bottom: 1px solid #f1f3f4;
+        transition: background 0.2s ease;
+      }
+      .task-item:last-child { border-bottom: none; }
+
+      .task-item.running { background: var(--primary-bg); border-left-color: var(--primary); }
+      .task-item.error { background: var(--error-bg); border-left-color: var(--error); }
+      
+      .task-icon { margin-top: 2px; flex-shrink: 0; color: #dadce0; }
+      .running .task-icon { color: var(--primary); animation: spin 1s linear infinite; }
+      .done .task-icon { color: var(--success); }
+      .error .task-icon { color: var(--error); }
+
+      .task-content-wrapper { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+      .task-title { font-size: 0.9rem; font-weight: 500; color: var(--text-main); }
+      .done .task-title { color: var(--text-sub); text-decoration: line-through; text-decoration-color: #dadce0; }
+
+      .task-cmd-preview {
+        font-family: var(--font-mono); 
+        color: var(--text-sub); 
+        font-size: 0.75rem;
+        background: rgba(0,0,0,0.04);
+        padding: 2px 6px;
+        border-radius: 4px;
+        display: inline-block;
+        width: fit-content;
+      }
+
+      .task-output-mini {
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        color: var(--text-code);
+        background: #fff;
+        padding: 8px 12px;
+        border-radius: 8px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        border: 1px solid var(--border-color);
+        margin-top: 6px;
+        display: none;
+      }
+      .task-output-mini.visible { display: block; animation: slideDown 0.2s ease; }
+
+      .ai-note {
+        margin-top: 8px;
+        background: #fff8e1;
+        border: 1px solid #ffecb3;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 0.85rem;
+        color: #5f4b06;
+      }
+      .ai-tag { font-weight: 700; color: #e37400; font-size: 0.7rem; text-transform: uppercase; display: block; margin-bottom: 4px; }
+
+      /* === Execution Log === */
+      .execution-log-section {
+        border-top: 1px solid var(--border-color);
+        background: #fafafa;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      .execlog-header {
+        padding: 10px 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: var(--text-sub);
+        background: #f1f3f4;
+        border-bottom: 1px solid var(--border-color);
+        position: sticky; top: 0;
+      }
+      .execlog-content {
+        padding: 12px 20px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        line-height: 1.6;
+        color: #444;
+        white-space: pre-wrap;
+      }
+      .execlog-entry { padding: 4px 0; border-bottom: 1px dashed #eee; }
+      .execlog-entry:last-child { border-bottom: none; }
+      .execlog-entry.error { color: var(--error); font-weight: 500; }
+      .execlog-entry.fix { color: #e37400; background: #fff8e1; padding: 4px 8px; border-radius: 4px; display:inline-block; }
+
+      /* === Input Area === */
+      .input-area { padding: 24px 32px; background: #fff; }
+      form { 
+        display: flex; gap: 8px; background: #f1f3f4; 
+        border: 1px solid transparent; border-radius: var(--radius-pill); 
+        padding: 8px 8px 8px 24px; transition: all 0.3s ease; 
+        max-width: 800px; margin: 0 auto;
+      }
+      form:focus-within { background: #fff; box-shadow: 0 2px 6px rgba(60,64,67,0.15); border-color: #dadce0; }
+      input[type="text"] { flex: 1; border: none; background: transparent; font-family: var(--font-sans); font-size: 1rem; outline: none; color: var(--text-main); padding: 4px 0; }
+      button { 
+        background: transparent; color: var(--primary); border: none; 
+        border-radius: var(--radius-pill); padding: 0 24px; font-weight: 600; 
+        cursor: pointer; font-size: 0.95rem; transition: background 0.2s;
+        display: flex; align-items: center; gap: 8px;
+      }
+      button:hover { background: rgba(26,115,232, 0.08); }
+      button:disabled { color: var(--text-sub); cursor: not-allowed; background: transparent; }
+      button .spinner { width: 18px; height: 18px; border: 2px solid rgba(26,115,232, 0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+
+      /* === 右侧：终端 === */
+      .terminal-panel { width: 40%; background: var(--term-bg); display: flex; flex-direction: column; color: var(--term-text); border-left: 1px solid #3c4043; }
+      .term-header { height: 48px; background: var(--term-header); display: flex; align-items: center; padding: 0 16px; border-bottom: 1px solid #000; justify-content: space-between; }
+      .term-title { font-family: var(--font-sans); font-size: 0.8rem; color: #bdc1c6; font-weight: 500; letter-spacing: 0.5px; }
+      .win-controls { display: flex; gap: 8px; opacity: 0.6; }
+      .win-dot { width: 10px; height: 10px; border-radius: 50%; background: #5f6368; }
+      .terminal-log { flex: 1; overflow-y: auto; padding: 20px; font-family: var(--font-mono); font-size: 0.85rem; line-height: 1.5; white-space: pre-wrap; color: #e8eaed; }
+      
+      ::-webkit-scrollbar { width: 10px; height: 10px; }
+      ::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 5px; border: 2px solid #fff; }
+      .terminal-panel ::-webkit-scrollbar-thumb { background: #5f6368; border-color: var(--term-bg); }
+      ::-webkit-scrollbar-track { background: transparent; }
+
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    
+    <div class="chat-panel">
+      <div class="chat-header">
+        <svg height="24" viewBox="0 0 24 24" width="24" fill="#1a73e8"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"></path></svg>
+        <div class="brand-title">Lumo Agent</div>
+        <div class="status-badge">ONLINE</div>
+      </div>
+
+      <div id="chat-stream" class="chat-stream">
+        <div class="msg-row log">
+          <div class="msg-bubble">系统就绪，等待指令...</div>
+        </div>
+      </div>
+
+      <div class="input-area">
+        <form id="chat-form">
+          <input id="goal-input" type="text" placeholder="输入指令，例如：检查系统版本..." autofocus />
+          <button type="submit">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+            <span class="btn-text">发送</span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="terminal-panel">
+      <div class="term-header">
+        <span class="term-title">TERMINAL@LOCALHOST</span>
+        <div class="win-controls">
+          <div class="win-dot"></div>
+          <div class="win-dot"></div>
+        </div>
+      </div>
+      <div id="terminal-log" class="terminal-log">
+        <div id="debug-info" style="color:#fdd835; font-size:0.75rem; padding-bottom:10px; border-bottom:1px solid #444; margin-bottom:10px;">
+          [DEBUG] Connection Standby...
+        </div>
+        <span style="color:#9aa0a6;"># Waiting for execution...</span>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById("chat-form");
+      const input = document.getElementById("goal-input");
+      const chatStream = document.getElementById("chat-stream");
+      const termLog = document.getElementById("terminal-log");
+      const debugInfo = document.getElementById("debug-info");
+      const btnText = document.querySelector(".btn-text");
+      
+      function updateDebug(msg) {
+        if (debugInfo) {
+          debugInfo.textContent = `[DEBUG] ${new Date().toLocaleTimeString()} - ${msg}`;
+        }
+      }
+      
+      let ws = null;
+      let currentTaskCardId = null; 
+      let taskNotes = {}; 
+      let taskLogs = {}; 
+
+      // Icons
+      const ICONS = {
+        pending: `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm4.59-12.42L10 14.17l-2.59-2.58L6 13l4 4 8-8z" fill="#dadce0"/></svg>`,
+        running: `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 4V2C6.48 2 2 6.48 2 12h2c0-5.52 4.48-10 10-10zm0 16c4.41 0 8-3.59 8-8h-2c0 3.31-2.69 6-6 6v2z" fill="currentColor"/></svg>`,
+        success: `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="#1e8e3e"/></svg>`,
+        error:   `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" fill="#d93025"/></svg>`
+      };
+      
+      const PLAN_ICON = `<svg class="icon-svg" viewBox="0 0 24 24" style="color:#5f6368"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z" fill="currentColor"/></svg>`;
+
+      function scrollToBottom(el) { el.scrollTop = el.scrollHeight; }
+
+      // === 修改点：统一的气泡生成逻辑 ===
+      function appendBubble(type, content) {
+        const row = document.createElement("div");
+        row.className = `msg-row ${type}`;
+        
+        // 不再根据 type 生成不同的 HTML 结构
+        // 所有的 AI 回复（reply, summary, log）都使用统一的 msg-bubble
+        // 用户(user)会有 CSS 覆盖背景色
+        row.innerHTML = `<div class="msg-bubble">${content}</div>`;
+        
+        chatStream.appendChild(row);
+        scrollToBottom(chatStream);
+      }
+
+      function updateTaskCard(tasks) {
+        if (typeof tasks === "string") tasks = JSON.parse(tasks);
+        if (!tasks || tasks.length === 0) return;
+
+        if (!currentTaskCardId) {
+          currentTaskCardId = 'card-' + Date.now();
+          const row = document.createElement("div");
+          row.className = "msg-row"; 
+          row.innerHTML = `
+            <div class="task-card" id="${currentTaskCardId}">
+              <div class="task-card-header">
+                <div class="header-title">${PLAN_ICON} Task Plan</div>
+                <div id="${currentTaskCardId}-count" style="font-size:0.75rem; color:#5f6368; font-weight:600; background:#f1f3f4; padding:2px 8px; border-radius:12px;"></div>
+              </div>
+              <div class="task-list-container" id="${currentTaskCardId}-list"></div>
+              <div class="execution-log-section" id="${currentTaskCardId}-execlog">
+                <div class="execlog-header">Activity Log</div>
+                <div class="execlog-content" id="${currentTaskCardId}-execlog-content"></div>
+              </div>
+            </div>
+          `;
+          chatStream.appendChild(row);
+          scrollToBottom(chatStream);
+        }
+
+        const listEl = document.getElementById(`${currentTaskCardId}-list`);
+        document.getElementById(`${currentTaskCardId}-count`).textContent = 
+          `${tasks.filter(t => t.status === 'completed' || t.status === 'done').length}/${tasks.length}`;
+
+        let listHtml = '';
+        
+        tasks.forEach((t, index) => {
+          let icon = ICONS.pending;
+          let rowClass = "task-item";
+          let titleClass = "task-title";
+
+          if (t.status === "running") { icon = ICONS.running; rowClass += " running"; }
+          else if (t.status === "completed" || t.status === "done") { icon = ICONS.success; rowClass += " done"; }
+          else if (t.status === "error" || t.status === "failed") { icon = ICONS.error; rowClass += " error"; }
+
+          let noteHtml = taskNotes[index] 
+            ? `<div class="ai-note"><span class="ai-tag">AI Analysis</span>${taskNotes[index]}</div>` 
+            : "";
+          
+          let logHtml = "";
+          if (taskLogs[index]) {
+            logHtml = `<div class="task-output-mini visible">${taskLogs[index]}</div>`;
+          }
+
+          listHtml += `
+            <div class="${rowClass}" data-index="${index}">
+              <div class="task-icon">${icon}</div>
+              <div class="task-content-wrapper">
+                <div class="${titleClass}">${t.title}</div>
+                ${t.command ? `<div class="task-cmd-preview">$ ${t.command}</div>` : ""}
+                ${logHtml}
+                ${noteHtml}
+              </div>
+            </div>
+          `;
+        });
+
+        listEl.innerHTML = listHtml;
+      }
+
+      function handleSmartLog(content) {
+        const cleanContent = content.trim();
+
+        function appendToExecLog(text, className = '') {
+          if (!currentTaskCardId) return;
+          const logContent = document.getElementById(`${currentTaskCardId}-execlog-content`);
+          if (logContent) {
+            const entry = document.createElement('div');
+            entry.className = `execlog-entry ${className}`;
+            entry.textContent = text;
+            logContent.appendChild(entry);
+            logContent.scrollTop = logContent.scrollHeight;
+          }
+        }
+
+        if (cleanContent.startsWith("输出:") || cleanContent.startsWith("Output:")) {
+          const logText = cleanContent.replace(/^(输出:|Output:)/, "").trim();
+          
+          if (currentTaskCardId) {
+            const listEl = document.getElementById(`${currentTaskCardId}-list`);
+            if (listEl) {
+              const items = listEl.children;
+              let targetIndex = -1;
+              for (let i = items.length - 1; i >= 0; i--) {
+                if (items[i].classList.contains('running')) { targetIndex = i; break; }
+              }
+              if (targetIndex === -1) {
+                 for (let i = items.length - 1; i >= 0; i--) {
+                    if (items[i].classList.contains('error') || items[i].classList.contains('done')) { targetIndex = i; break; }
+                 }
+              }
+
+              if (targetIndex !== -1) {
+                taskLogs[targetIndex] = logText;
+                const targetWrapper = items[targetIndex].querySelector('.task-content-wrapper');
+                let miniLog = targetWrapper.querySelector('.task-output-mini');
+                if (!miniLog) {
+                    miniLog = document.createElement('div');
+                    miniLog.className = 'task-output-mini visible';
+                    const noteEl = targetWrapper.querySelector('.ai-note');
+                    if (noteEl) targetWrapper.insertBefore(miniLog, noteEl);
+                    else targetWrapper.appendChild(miniLog);
+                }
+                miniLog.textContent = logText.length > 200 ? logText.substring(0, 200) + '...' : logText;
+              }
+            }
+          }
+          appendToExecLog(`> ${logText}`);
+          return;
+        } 
+        
+        if (cleanContent.startsWith("开始:") || cleanContent.startsWith("Start:")) {
+           appendToExecLog(`➜ ${cleanContent}`);
+           return; 
+        }
+
+        if (cleanContent.startsWith("失败:") || cleanContent.includes("命令未找到")) {
+           appendToExecLog(`✖ ${cleanContent}`, 'error');
+           return;
+        }
+
+        if (!cleanContent.startsWith("Current Plan")) {
+            appendToExecLog(cleanContent);
+        }
+      }
+
+      function handleThought(content) {
+        if (currentTaskCardId) {
+          const logContent = document.getElementById(`${currentTaskCardId}-execlog-content`);
+          if (logContent) {
+            const entry = document.createElement('div');
+            entry.className = 'execlog-entry fix';
+            entry.textContent = `💡 AI: ${content}`;
+            logContent.appendChild(entry);
+            logContent.scrollTop = logContent.scrollHeight;
+          }
+
+          const listEl = document.getElementById(`${currentTaskCardId}-list`);
+          if (listEl) {
+            const items = listEl.children;
+            for (let i = items.length - 1; i >= 0; i--) {
+              if (items[i].classList.contains('running') || items[i].classList.contains('error')) {
+                 taskNotes[i] = (taskNotes[i] ? taskNotes[i] + "\n" : "") + content;
+                 const targetWrapper = items[i].querySelector('.task-content-wrapper');
+                 let noteEl = targetWrapper.querySelector('.ai-note');
+                 if(noteEl) noteEl.remove();
+                 noteEl = document.createElement('div');
+                 noteEl.className = 'ai-note';
+                 noteEl.innerHTML = `<span class="ai-tag">AI Fix Suggestion</span>${taskNotes[i]}`;
+                 targetWrapper.appendChild(noteEl);
+                 return;
+              }
+            }
+          }
+        }
+        appendBubble('log', `[Thinking] ${content}`);
+      }
+
+      function appendTerm(text) {
+        if (termLog.querySelector('span')) termLog.innerHTML = "";
+        const div = document.createElement("div");
+        div.textContent = text;
+        termLog.appendChild(div);
+        scrollToBottom(termLog);
+      }
+
+      let isConnected = false;
+      const submitBtn = document.querySelector("form button");
+
+      function setLoading(loading) {
+        if (loading) {
+          if(btnText) btnText.textContent = "Processing";
+          submitBtn.innerHTML = '<div class="spinner"></div> Processing';
+          submitBtn.disabled = true;
+          input.disabled = true;
+        } else {
+          submitBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg> 发送';
+          submitBtn.disabled = false;
+          input.disabled = false;
+          input.focus();
+        }
+      }
+
+      function ensureConnection() {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          return Promise.resolve();
+        }
+        
+        return new Promise((resolve, reject) => {
+          const wsUrl = `ws://${location.host}/ws/agent`;
+          updateDebug(`Connecting to ${wsUrl}...`);
+          ws = new WebSocket(wsUrl);
+          
+          ws.onopen = () => {
+            updateDebug('Connected.');
+            isConnected = true;
+            resolve();
+          };
+
+          ws.onmessage = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              
+              if (data.type === "terminal") {
+                appendTerm(data.content);
+              } else if (data.type === "tasks") {
+                updateTaskCard(data.content);
+              } else if (data.type === "thought") {
+                handleThought(data.content);
+              } else if (data.type === "log") {
+                handleSmartLog(data.content);
+              } else if (data.type === "reply") {
+                // 统一调用 appendBubble，样式不再区分
+                appendBubble('assistant', data.content);
+              } else if (data.type === "summary") {
+                // 统一调用 appendBubble，样式不再区分
+                appendBubble('assistant', data.content);
+              } else if (data.type === "done") {
+                updateDebug('Done.');
+                setLoading(false);
+              } else if (data.type === "error") {
+                updateDebug(`Error: ${data.content}`);
+                appendBubble('assistant', `Error: ${data.content}`);
+                setLoading(false);
+              }
+            } catch (e) {
+              console.error(e);
+            }
+          };
+
+          ws.onclose = () => {
+            isConnected = false;
+            setLoading(false);
+          };
+
+          ws.onerror = (e) => {
+            isConnected = false;
+            appendBubble('assistant', 'Connection Error');
+            setLoading(false);
+            reject(e);
+          };
+        });
+      }
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const goal = input.value.trim();
+        if (!goal) return;
+
+        input.value = "";
+        setLoading(true);
+
+        currentTaskCardId = null;
+        taskNotes = {};
+        taskLogs = {};
+        
+        appendBubble('user', goal);
+
+        try {
+          await ensureConnection();
+          ws.send(JSON.stringify({ goal }));
+        } catch (err) {
+          appendBubble('assistant', 'Failed to connect');
+          setLoading(false);
+        }
+      });
+    </script>
+  </body>
+</html>
